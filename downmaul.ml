@@ -25,6 +25,7 @@ type block =
     | ListItem of block list
     | IndentedCode of inline list
     | FencedCode  of char * string * inline list (* char is either ` or ~ *)
+    | Empty
 
 let markdown = Sys.argv.(1)
 let _ = print_endline markdown
@@ -52,18 +53,26 @@ let rec print_lines l =
 let lines = read_lines markdown
 let _ = print_lines lines
 
-let line_to_block line =
+let line_to_block line last_block =
     let words = String.split_on_char ' ' line in
         match words with
-            [] -> BlankLine
+            [] -> last_block, Empty
             | h::t -> match h with
-                "#" -> print_endline "Hash, woohoo!"; HashHeader(1, line)
-                |_ -> Text(line)
+                 "#" -> print_endline "Hash, woohoo!"; (last_block, (HashHeader(1, line)))
+                |"" -> print_endline "Blank line"; (last_block, (BlankLine))
+                |_ -> match last_block with
+                    Text (text) -> (Empty, Text(String.concat line [text]))
+                    |_ -> (last_block, Text(line))
     
-let rec lines_to_blocks lines =
+let rec lines_to_blocks lines last_block =
     match lines with
-        [] -> []
-        | h::t -> line_to_block h :: lines_to_blocks t
+        [] -> (match last_block with
+            Empty -> []
+            |_ -> [last_block])
+        | h::t -> let left, right = line_to_block h last_block in
+            match left with
+            Empty -> lines_to_blocks t right
+            |_ -> left :: lines_to_blocks t right
 
-let blocks = lines_to_blocks lines
+let blocks = lines_to_blocks lines Empty
 let _ = print_int (List.length blocks)
