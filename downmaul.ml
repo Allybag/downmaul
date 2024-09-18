@@ -31,3 +31,28 @@ type block =
     | List of char * list_type * block list
     | Root of block list
 
+let markdown = Sys.argv.(1)
+let _ = print_endline markdown
+
+let lines = []
+
+let rec read_to_list channel =
+    try
+        let line = input_line channel in
+            line::read_to_list channel
+    with
+        End_of_file -> []
+
+let read_lines path =
+    let in_channel = open_in path in
+        let lines = read_to_list in_channel in
+            close_in in_channel;
+            lines
+
+let rec print_lines l =
+    match l with
+        h::t -> print_endline h; print_lines t
+        | [] -> ()
+
+let lines = read_lines markdown
+let _ = print_lines lines
