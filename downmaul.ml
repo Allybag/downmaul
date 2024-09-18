@@ -14,11 +14,12 @@ type list_type =
     | Unordered
 
 type block =
+    | Text of string
     | ThematicBreak (*  <hr /> *)
     | BlankLine
     | ListStart of list_type
     | ListEnd of list_type
-    | HashHeader of int * inline (* <h1>bag</h1> *)
+    | HashHeader of int * string (* <h1>bag</h1> *)
     | Paragraph of inline list
     | BlockQuote of block list
     | ListItem of block list
@@ -50,3 +51,19 @@ let rec print_lines l =
 
 let lines = read_lines markdown
 let _ = print_lines lines
+
+let line_to_block line =
+    let words = String.split_on_char ' ' line in
+        match words with
+            [] -> BlankLine
+            | h::t -> match h with
+                "#" -> print_endline "Hash, woohoo!"; HashHeader(1, line)
+                |_ -> Text(line)
+    
+let rec lines_to_blocks lines =
+    match lines with
+        [] -> []
+        | h::t -> line_to_block h :: lines_to_blocks t
+
+let blocks = lines_to_blocks lines
+let _ = print_int (List.length blocks)
