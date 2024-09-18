@@ -6,10 +6,7 @@ type inline = (* Vaguely Ordered by precedence *)
     | Emphasis of int * char * string
     | Link of string * string * string
     | Image of string * string * string
-    | Autolink of string
-    | RawHtml of string
-    | HardLineBreak
-    | SoftLineBreak
+    | LineBreak
     | Text of string
 
 type list_type = 
@@ -18,18 +15,15 @@ type list_type =
 
 type block =
     | ThematicBreak (*  <hr /> *)
-    | HashHeader of int * inline (* <h1>bag</h1> *)
-    | LineHeader of int * inline (* <h1>bag</h1> *)
-    | IndentedCode of inline list
-    | FencedCode  of char * string * inline list (* char is either ` or ~ *)
-    | HtmlBlock of tag * string
-    | LinkReference of label * string * string
-    | Paragraph of inline list
     | BlankLine
+    | ListStart of list_type
+    | ListEnd of list_type
+    | HashHeader of int * inline (* <h1>bag</h1> *)
+    | Paragraph of inline list
     | BlockQuote of block list
     | ListItem of block list
-    | List of char * list_type * block list
-    | Root of block list
+    | IndentedCode of inline list
+    | FencedCode  of char * string * inline list (* char is either ` or ~ *)
 
 let markdown = Sys.argv.(1)
 let _ = print_endline markdown
