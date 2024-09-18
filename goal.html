@@ -1,0 +1,23 @@
+<h1 id="tilapia">Tilapia</h1>
+<p>A userspace TCP stack.</p>
+<p>I will be mainly following along with this
+<a href="https://www.saminiir.com/lets-code-tcp-ip-stack-1-ethernet-arp/">guide</a></p>
+<blockquote>
+<p>A tilapia is a kind of fish.</p>
+</blockquote>
+<h2 id="tap-device">Tap Device</h2>
+<p>We will be dealing with a TAP device, a simulated Layer 2 device.
+When we create our device we are assigned a MAC address at random
+by the operating system, but we can choose our own if we want to:
+<code>ip link set address aa::bb::cc::dd::ee::ff Tilapia</code></p>
+<p>This means we will be sending and receiving Ethernet frames.</p>
+<h1 id="tilapia">Tilapia</h1>
+<p>The goal of this TCP stack are:</p>
+<ul>
+<li>Implement a subset of TCP successfully</li>
+<li>Show what is going on behind the scenese</li>
+</ul>
+<p>We can toggle this behaviour on or off by sending a <strong>SIGUSR1</strong> signal.
+We can also toggle disabling all outbound writes with a <em>SIGUSR2</em> signal.</p>
+<p>To do this, just execute the following in a shell on the tilapia host:</p>
+<p><code>kill -s SIGUSR1 $(pidof tilapia)</code></p>
