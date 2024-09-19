@@ -1,6 +1,9 @@
 type tag = string
 type label = string
 
+exception ParseError
+exception NotImplementedError
+
 type inline = (* Vaguely Ordered by precedence *)
     | CodeSpan of int * string
     | Emphasis of int * char * string
@@ -31,7 +34,7 @@ let print_block block =
     | Text (text) -> print_endline ("Text: " ^ text)
     | BlankLine -> print_endline "BlankLine"
     | HashHeader (level, text) -> print_endline ("HashHeader of level " ^ (string_of_int level) ^ ": " ^ text);
-    | _ -> ()
+    | _ -> raise NotImplementedError
 
 let rec print_blocks blocks =
     match blocks with
@@ -65,7 +68,7 @@ let add_to_block line context =
     match context with
     | NoContext -> IncompleteBlock (Text(line))
     | (CompleteBlock (Text (text)) | IncompleteBlock (Text (text))) -> IncompleteBlock (Text(text ^ " " ^ line))
-    | _ -> CompleteBlock (Text("Unexpected dodginess"))
+    | _ -> raise ParseError
 
 let line_to_block line context =
     let words = String.split_on_char ' ' line in
@@ -90,7 +93,7 @@ let rec lines_to_blocks lines context =
             match block with
             | IncompleteBlock (incomplete) -> lines_to_blocks t block
             | CompleteBlock (complete) -> (blocks context complete) @ lines_to_blocks t NoContext
-            | NoContext -> [] (* Raise *)
+            | NoContext -> raise ParseError
 
 let markdown = Sys.argv.(1)
 let lines = read_lines markdown
