@@ -9,7 +9,7 @@ type inline = (* Vaguely Ordered by precedence *)
     | LineBreak
     | Text of string
 
-type list_type = 
+type list_type =
     | Ordered
     | Unordered
 
@@ -25,12 +25,18 @@ type block =
     | ListItem of block list
     | IndentedCode of inline list
     | FencedCode  of char * string * inline list (* char is either ` or ~ *)
-    | Empty
 
-let markdown = Sys.argv.(1)
-let _ = print_endline markdown
+let print_block block =
+    match block with
+    | Text (text) -> print_endline ("Text: " ^ text)
+    | BlankLine -> print_endline "BlankLine"
+    | HashHeader (level, text) -> print_endline ("HashHeader of level " ^ (string_of_int level) ^ ": " ^ text);
+    | _ -> ()
 
-let lines = []
+let rec print_blocks blocks =
+    match blocks with
+    | [] -> ()
+    | block::t -> print_block block; print_blocks t
 
 let rec read_to_list channel =
     try
@@ -47,32 +53,46 @@ let read_lines path =
 
 let rec print_lines l =
     match l with
-        h::t -> print_endline h; print_lines t
-        | [] -> ()
+    | h::t -> print_endline h; print_lines t
+    | [] -> ()
 
-let lines = read_lines markdown
-let _ = print_lines lines
+type block_context =
+    | CompleteBlock of block
+    | IncompleteBlock of block
+    | NoContext
 
-let line_to_block line last_block =
+let add_to_block line context =
+    match context with
+    | NoContext -> IncompleteBlock (Text(line))
+    | (CompleteBlock (Text (text)) | IncompleteBlock (Text (text))) -> IncompleteBlock (Text(text ^ " " ^ line))
+    | _ -> CompleteBlock (Text("Unexpected dodginess"))
+
+let line_to_block line context =
     let words = String.split_on_char ' ' line in
         match words with
-            [] -> last_block, Empty
-            | h::t -> match h with
-                 "#" -> print_endline "Hash, woohoo!"; (last_block, (HashHeader(1, line)))
-                |"" -> print_endline "Blank line"; (last_block, (BlankLine))
-                |_ -> match last_block with
-                    Text (text) -> (Empty, Text(String.concat line [text]))
-                    |_ -> (last_block, Text(line))
-    
-let rec lines_to_blocks lines last_block =
-    match lines with
-        [] -> (match last_block with
-            Empty -> []
-            |_ -> [last_block])
-        | h::t -> let left, right = line_to_block h last_block in
-            match left with
-            Empty -> lines_to_blocks t right
-            |_ -> left :: lines_to_blocks t right
+        | [] -> context
+        | first_word::_ -> match first_word with
+            | "#" -> CompleteBlock (HashHeader(1, line))
+            | "" -> CompleteBlock (BlankLine)
+            | _ -> add_to_block line context
 
-let blocks = lines_to_blocks lines Empty
-let _ = print_int (List.length blocks)
+let blocks context block =
+    match context with
+    | NoContext -> [block]
+    | (CompleteBlock (prior_block) | IncompleteBlock (prior_block)) -> [prior_block; block]
+
+let rec lines_to_blocks lines context =
+    match lines with
+        | [] -> (match context with
+            | NoContext -> []
+            | (CompleteBlock (block) | IncompleteBlock (block)) -> [block])
+        | line::t -> let block = line_to_block line context in
+            match block with
+            | IncompleteBlock (incomplete) -> lines_to_blocks t block
+            | CompleteBlock (complete) -> (blocks context complete) @ lines_to_blocks t NoContext
+            | NoContext -> [] (* Raise *)
+
+let markdown = Sys.argv.(1)
+let lines = read_lines markdown
+let blocks = lines_to_blocks lines NoContext
+let _ = print_blocks blocks
