@@ -9,7 +9,6 @@ type inline = (* Vaguely Ordered by precedence *)
     | Emphasis of int * char * string
     | Link of string * string * string
     | Image of string * string * string
-    | LineBreak
     | Text of string
 
 type list_type =
@@ -17,21 +16,18 @@ type list_type =
     | Unordered
 
 type block =
-    | Text of string
-    | ThematicBreak (*  <hr /> *)
     | BlankLine
     | ListStart of list_type
     | ListEnd of list_type
+    | Paragraph of string
+    | BlockQuote of string
+    | ListItem of string
     | HashHeader of int * string (* <h1>bag</h1> *)
-    | Paragraph of inline list
-    | BlockQuote of block list
-    | ListItem of block list
-    | IndentedCode of inline list
-    | FencedCode  of char * string * inline list (* char is either ` or ~ *)
+    | FencedCode of char * string * string (* char is either ` or ~ *)
 
 let print_block block =
     match block with
-    | Text (text) -> print_endline ("Text: " ^ text)
+    | Paragraph (text) -> print_endline ("Paragraph: " ^ text)
     | BlankLine -> print_endline "BlankLine"
     | HashHeader (level, text) -> print_endline ("HashHeader of level " ^ (string_of_int level) ^ ": " ^ text);
     | _ -> raise NotImplementedError
@@ -66,8 +62,8 @@ type block_context =
 
 let add_to_block line context =
     match context with
-    | NoContext -> IncompleteBlock (Text(line))
-    | (CompleteBlock (Text (text)) | IncompleteBlock (Text (text))) -> IncompleteBlock (Text(text ^ " " ^ line))
+    | NoContext -> IncompleteBlock (Paragraph(line))
+    | (CompleteBlock (Paragraph (text)) | IncompleteBlock (Paragraph (text))) -> IncompleteBlock (Paragraph(text ^ " " ^ line))
     | _ -> raise ParseError
 
 let line_to_block line context =
