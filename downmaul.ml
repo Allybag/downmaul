@@ -1,19 +1,4 @@
-type tag = string
-type label = string
-
 exception ParseError
-exception NotImplementedError
-
-type inline = (* Vaguely Ordered by precedence *)
-    | CodeSpan of int * string
-    | Emphasis of int * char * string
-    | Link of string * string * string
-    | Image of string * string * string
-    | Text of string
-
-type list_type =
-    | Ordered
-    | Unordered
 
 type block =
     | BlankLine
@@ -32,33 +17,14 @@ let print_block block =
     | HashHeader (level, text) -> print_endline ("HashHeader of level " ^ (string_of_int level) ^ ": " ^ text);
     | ListStart -> print_endline ("ListStart")
     | ListEnd -> print_endline ("ListEnd")
-    | ListItem (text) -> print_endline ("ListItem: " ^ text);
-    | BlockQuote (text) -> print_endline ("BlockQuote: " ^ text);
-    | CodeBlock (text) -> print_endline ("CodeBlock: " ^ text);
-    | _ -> raise NotImplementedError
+    | ListItem (text) -> print_endline ("ListItem: " ^ text)
+    | BlockQuote (text) -> print_endline ("BlockQuote: " ^ text)
+    | CodeBlock (text) -> print_endline ("CodeBlock: " ^ text)
 
 let rec print_blocks blocks =
     match blocks with
     | [] -> ()
     | block::t -> print_block block; print_blocks t
-
-let rec read_to_list channel =
-    try
-        let line = input_line channel in
-            line::read_to_list channel
-    with
-        End_of_file -> []
-
-let read_lines path =
-    let in_channel = open_in path in
-        let lines = read_to_list in_channel in
-            close_in in_channel;
-            lines
-
-let rec print_lines l =
-    match l with
-    | h::t -> print_endline h; print_lines t
-    | [] -> ()
 
 type stream_type =
     | List
@@ -109,16 +75,39 @@ let starts_block line =
 let rec lines_to_list lines blocks =
     match lines with
     | [] -> [ListEnd]
-    | line::tail -> print_endline ("Line: " ^ line); ListItem (line)::lines_to_list tail blocks
+    | line::tail -> ListItem (line)::lines_to_list tail blocks
 
-let stream_to_blocks stream =
+let remove_first_word line = 
+    let words = to_words line in
+        match words with
+        | [] -> raise ParseError
+        | _::tail -> (String.concat " " tail)
+
+let rec remove_last list =
+    match list with
+    | [] -> []
+    | [_] -> []
+    | h::t -> h::(remove_last t)
+
+let remove_last_word line = 
+    let words = to_words line in
+        match words with 
+        | [] -> raise ParseError
+        | _::_ -> String.concat " " (remove_last words)
+
+let content line stream_type =
+    match stream_type with
+    | (List | Quote) -> remove_first_word line
+    | (Code | Text) -> line
+
+let stream_to_blocks stream line =
     match stream with
     | (NoStream | BlockStream (_)) -> raise ParseError
     | PendingStream (stream_type, lines) -> match stream_type with
         | List -> BlockStream (Remaining, (ListStart :: lines_to_list lines []))
         | Text ->  BlockStream (Remaining, ([Paragraph(String.concat "\n" lines)]))
         | Quote -> BlockStream (Remaining, ([BlockQuote(String.concat "\n" lines)]))
-        | Code ->  BlockStream (Consumed, ([CodeBlock(String.concat "\n" lines)]))
+        | Code ->  BlockStream (Consumed, ([CodeBlock(String.concat "\n" (lines @ [remove_last_word line]))]))
 
 let ends_stream stream_type line =
     match stream_type with
@@ -132,7 +121,7 @@ let add_to_stream line stream =
     | BlockStream (_) -> raise ParseError
     | NoStream -> NoStream
     | PendingStream (stream_type, lines) ->
-        if ends_stream stream_type line then stream_to_blocks stream else PendingStream (stream_type, (lines @ [line]))
+        if ends_stream stream_type line then stream_to_blocks stream line else PendingStream (stream_type, (lines @ [content line stream_type]))
 
 let line_to_stream line stream =
     let result = add_to_stream line stream in
@@ -142,11 +131,13 @@ let line_to_stream line stream =
     | NoStream -> let words = to_words line in
         match words with
         | [] -> BlockStream (Consumed, [BlankLine])
-        | first_word::rest -> match first_word with
-            | ("*" | "+" | "-") -> PendingStream (List, ([line]))
-            | ">" -> PendingStream (Quote, ([line]))
-            | word when is_probably_header word -> BlockStream (Consumed, [HashHeader(String.length word, (String.concat " " rest))])
-            | ("```" | "~~~") -> PendingStream (Code, ([line]))
+        | first_word::tail -> let rest_of_line = String.concat " " tail in
+            match first_word with
+            | ("*" | "+" | "-") -> PendingStream (List, ([rest_of_line]))
+            | ">" -> PendingStream (Quote, ([rest_of_line]))
+            | word when is_probably_header word -> BlockStream (Consumed, [HashHeader(String.length word, rest_of_line)])
+            | ("```" | "~~~") when ends_stream Code line -> BlockStream (Consumed, [CodeBlock(remove_last_word rest_of_line)])
+            | ("```" | "~~~") -> PendingStream (Code, ([rest_of_line]))
             | _ -> PendingStream (Text, ([line]))
 
 let extract_blocks stream =
@@ -159,7 +150,7 @@ let rec lines_to_blocks lines stream =
         | [] -> (match stream with
             | NoStream -> []
             | BlockStream (_) -> raise ParseError
-            | PendingStream (_) -> extract_blocks (stream_to_blocks stream))
+            | PendingStream (_) -> extract_blocks (stream_to_blocks stream ""))
         | line::t -> let result = line_to_stream line stream in
             match result with
             | PendingStream (_) -> lines_to_blocks t result
@@ -167,6 +158,19 @@ let rec lines_to_blocks lines stream =
             | BlockStream (next_action ,blocks) -> match next_action with
                 | Consumed -> blocks @ (lines_to_blocks t NoStream)
                 | Remaining -> blocks @ (lines_to_blocks lines NoStream)
+
+let rec read_to_list channel =
+    try
+        let line = input_line channel in
+            line::read_to_list channel
+    with
+        End_of_file -> []
+
+let read_lines path =
+    let in_channel = open_in path in
+        let lines = read_to_list in_channel in
+            close_in in_channel;
+            lines
 
 let markdown = Sys.argv.(1)
 let lines = read_lines markdown
