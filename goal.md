@@ -26,4 +26,4 @@ We can also toggle disabling all outbound writes with a *SIGUSR2* signal.
 
 To do this, just execute the following in a shell on the tilapia host:
 
-```kill -s SIGUSR1 $(pidof tilapia)```
+``` kill -s SIGUSR1 $(pidof tilapia) ```

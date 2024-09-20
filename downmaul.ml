@@ -34,6 +34,7 @@ let print_block block =
     | ListEnd -> print_endline ("ListEnd")
     | ListItem (text) -> print_endline ("ListItem: " ^ text);
     | BlockQuote (text) -> print_endline ("BlockQuote: " ^ text);
+    | CodeBlock (text) -> print_endline ("CodeBlock: " ^ text);
     | _ -> raise NotImplementedError
 
 let rec print_blocks blocks =
@@ -65,8 +66,12 @@ type stream_type =
     | Code
     | Quote
 
+type line_status =
+    | Remaining
+    | Consumed
+
 type block_stream =
-    | BlockStream of block list
+    | BlockStream of line_status * block list
     | PendingStream of stream_type * string list
     | NoStream
 
@@ -104,16 +109,16 @@ let starts_block line =
 let rec lines_to_list lines blocks =
     match lines with
     | [] -> [ListEnd]
-    | line::tail -> ListItem (line)::lines_to_list tail blocks
+    | line::tail -> print_endline ("Line: " ^ line); ListItem (line)::lines_to_list tail blocks
 
 let stream_to_blocks stream =
     match stream with
     | (NoStream | BlockStream (_)) -> raise ParseError
     | PendingStream (stream_type, lines) -> match stream_type with
-        | List -> BlockStream (ListStart :: lines_to_list lines [])
-        | Text ->  BlockStream [Paragraph(String.concat "\n" lines)]
-        | Code ->  BlockStream [CodeBlock("Code")]
-        | Quote -> BlockStream [BlockQuote("Quote")]
+        | List -> BlockStream (Remaining, (ListStart :: lines_to_list lines []))
+        | Text ->  BlockStream (Remaining, ([Paragraph(String.concat "\n" lines)]))
+        | Quote -> BlockStream (Remaining, ([BlockQuote(String.concat "\n" lines)]))
+        | Code ->  BlockStream (Consumed, ([CodeBlock(String.concat "\n" lines)]))
 
 let ends_stream stream_type line =
     match stream_type with
@@ -136,24 +141,32 @@ let line_to_stream line stream =
     | PendingStream (_) -> result
     | NoStream -> let words = to_words line in
         match words with
-        | [] -> BlockStream ([BlankLine])
+        | [] -> BlockStream (Consumed, [BlankLine])
         | first_word::rest -> match first_word with
             | ("*" | "+" | "-") -> PendingStream (List, ([line]))
             | ">" -> PendingStream (Quote, ([line]))
-            | word when is_probably_header word -> BlockStream ([HashHeader(String.length word, (String.concat " " rest))])
+            | word when is_probably_header word -> BlockStream (Consumed, [HashHeader(String.length word, (String.concat " " rest))])
+            | ("```" | "~~~") -> PendingStream (Code, ([line]))
             | _ -> PendingStream (Text, ([line]))
+
+let extract_blocks stream =
+    match stream with
+    | (NoStream | PendingStream (_)) -> raise ParseError
+    | BlockStream (status, blocks) -> blocks
 
 let rec lines_to_blocks lines stream =
     match lines with
         | [] -> (match stream with
             | NoStream -> []
-            | PendingStream (stream_type, lines) -> []
-            | BlockStream (_) -> raise ParseError)
+            | BlockStream (_) -> raise ParseError
+            | PendingStream (_) -> extract_blocks (stream_to_blocks stream))
         | line::t -> let result = line_to_stream line stream in
             match result with
             | PendingStream (_) -> lines_to_blocks t result
-            | BlockStream (blocks) -> blocks @ (lines_to_blocks t NoStream)
             | NoStream -> raise ParseError
+            | BlockStream (next_action ,blocks) -> match next_action with
+                | Consumed -> blocks @ (lines_to_blocks t NoStream)
+                | Remaining -> blocks @ (lines_to_blocks lines NoStream)
 
 let markdown = Sys.argv.(1)
 let lines = read_lines markdown
