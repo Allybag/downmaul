@@ -19,7 +19,7 @@ This means we will be sending and receiving Ethernet frames.
 
 The goal of this TCP stack are:
 * Implement a subset of TCP successfully
-* Show what is going on behind the scenese
+* Show what is going on behind the scenes
 
 We can toggle this behaviour on or off by sending a **SIGUSR1** signal.
 We can also toggle disabling all outbound writes with a *SIGUSR2* signal.

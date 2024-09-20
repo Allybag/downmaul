@@ -17,8 +17,8 @@ type list_type =
 
 type block =
     | BlankLine
-    | ListStart of list_type
-    | ListEnd of list_type
+    | ListStart
+    | ListEnd
     | ListItem of string
     | BlockQuote of string
     | Paragraph of string
@@ -30,6 +30,8 @@ let print_block block =
     | Paragraph (text) -> print_endline ("Paragraph: " ^ text)
     | BlankLine -> print_endline "BlankLine"
     | HashHeader (level, text) -> print_endline ("HashHeader of level " ^ (string_of_int level) ^ ": " ^ text);
+    | ListStart -> print_endline ("ListStart")
+    | ListEnd -> print_endline ("ListEnd")
     | ListItem (text) -> print_endline ("ListItem: " ^ text);
     | BlockQuote (text) -> print_endline ("BlockQuote: " ^ text);
     | _ -> raise NotImplementedError
@@ -57,17 +59,16 @@ let rec print_lines l =
     | h::t -> print_endline h; print_lines t
     | [] -> ()
 
-type block_context =
-    | CompleteBlock of block
-    | IncompleteBlock of block
-    | NoContext
+type stream_type =
+    | List
+    | Text
+    | Code
+    | Quote
 
-let add_to_block line context =
-    match context with
-    | NoContext -> IncompleteBlock (Paragraph(line))
-    | IncompleteBlock (Paragraph (text)) -> IncompleteBlock (Paragraph(text ^ "\n" ^ line))
-    | IncompleteBlock (CodeBlock (text)) -> IncompleteBlock (CodeBlock(text ^ "\n" ^ line))
-    | _ -> raise ParseError
+type block_stream =
+    | BlockStream of block list
+    | PendingStream of stream_type * string list
+    | NoStream
 
 let is_probably_header string =
     String.starts_with ~prefix:"#" string &&
@@ -79,33 +80,82 @@ let to_words string =
     | "" -> []
     | non_empty -> String.split_on_char ' ' non_empty
 
-let line_to_block line context =
-    let words = to_words line in
-        match words with
-        | [] -> CompleteBlock (BlankLine)
-        | first_word::rest -> match first_word with
-            | ("*" | "+" | "-") -> CompleteBlock (ListItem(String.concat " " rest))
-            | ">" -> CompleteBlock (BlockQuote(String.concat " " rest))
-            | word when is_probably_header word -> CompleteBlock (HashHeader(String.length word, (String.concat " " rest)))
-            | _ -> add_to_block line context
+let starts_list_item line =
+    String.starts_with ~prefix:("*") line ||
+    String.starts_with ~prefix:("+") line ||
+    String.starts_with ~prefix:("-") line
 
-let blocks context block =
-    match context with
-    | NoContext -> [block]
-    | (CompleteBlock (prior_block) | IncompleteBlock (prior_block)) -> [prior_block; block]
+let starts_quote line =
+    String.starts_with ~prefix:(">") line
 
-let rec lines_to_blocks lines context =
+let starts_code_block line =
+    String.starts_with ~prefix:("```") line ||
+    String.starts_with ~prefix:("~~~") line
+
+let ends_code_block line =
+    String.ends_with ~suffix:("```") line ||
+    String.ends_with ~suffix:("~~~") line
+
+let starts_block line =
+    starts_list_item line ||
+    starts_quote line ||
+    starts_code_block line
+
+let rec lines_to_list lines blocks =
     match lines with
-        | [] -> (match context with
-            | NoContext -> []
-            | (CompleteBlock (block) | IncompleteBlock (block)) -> [block])
-        | line::t -> let block = line_to_block line context in
-            match block with
-            | IncompleteBlock (incomplete) -> lines_to_blocks t block
-            | CompleteBlock (complete) -> (blocks context complete) @ lines_to_blocks t NoContext
-            | NoContext -> raise ParseError
+    | [] -> [ListEnd]
+    | line::tail -> ListItem (line)::lines_to_list tail blocks
+
+let stream_to_blocks stream =
+    match stream with
+    | (NoStream | BlockStream (_)) -> raise ParseError
+    | PendingStream (stream_type, lines) -> match stream_type with
+        | List -> BlockStream (ListStart :: lines_to_list lines [])
+        | Text ->  BlockStream [Paragraph(String.concat "\n" lines)]
+        | Code ->  BlockStream [CodeBlock("Code")]
+        | Quote -> BlockStream [BlockQuote("Quote")]
+
+let ends_stream stream_type line =
+    match stream_type with
+    | List -> not (starts_list_item line)
+    | Quote -> not (starts_quote line)
+    | Code -> ends_code_block line
+    | Text -> starts_block line || (String.length line == 0)
+
+let add_to_stream line stream =
+    match stream with
+    | BlockStream (_) -> raise ParseError
+    | NoStream -> NoStream
+    | PendingStream (stream_type, lines) ->
+        if ends_stream stream_type line then stream_to_blocks stream else PendingStream (stream_type, (lines @ [line]))
+
+let line_to_stream line stream =
+    let result = add_to_stream line stream in
+    match result with
+    | BlockStream (_) -> result
+    | PendingStream (_) -> result
+    | NoStream -> let words = to_words line in
+        match words with
+        | [] -> BlockStream ([BlankLine])
+        | first_word::rest -> match first_word with
+            | ("*" | "+" | "-") -> PendingStream (List, ([line]))
+            | ">" -> PendingStream (Quote, ([line]))
+            | word when is_probably_header word -> BlockStream ([HashHeader(String.length word, (String.concat " " rest))])
+            | _ -> PendingStream (Text, ([line]))
+
+let rec lines_to_blocks lines stream =
+    match lines with
+        | [] -> (match stream with
+            | NoStream -> []
+            | PendingStream (stream_type, lines) -> []
+            | BlockStream (_) -> raise ParseError)
+        | line::t -> let result = line_to_stream line stream in
+            match result with
+            | PendingStream (_) -> lines_to_blocks t result
+            | BlockStream (blocks) -> blocks @ (lines_to_blocks t NoStream)
+            | NoStream -> raise ParseError
 
 let markdown = Sys.argv.(1)
 let lines = read_lines markdown
-let blocks = lines_to_blocks lines NoContext
+let blocks = lines_to_blocks lines NoStream
 let _ = print_blocks blocks
