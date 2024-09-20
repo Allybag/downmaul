@@ -5,7 +5,7 @@ A simple, heavily restricted MarkDown to HTML translator.
 The following subset of MarkDown will be implemented:
 * Lists
 * Block Quotes
-* Code Blocks (Indented or delimited)
+* Code Blocks (Not indented, just fenced)
 * Paragraphs
 * ATX or hash style headers
 * Links

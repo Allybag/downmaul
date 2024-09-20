@@ -19,17 +19,19 @@ type block =
     | BlankLine
     | ListStart of list_type
     | ListEnd of list_type
-    | Paragraph of string
-    | BlockQuote of string
     | ListItem of string
+    | BlockQuote of string
+    | Paragraph of string
+    | CodeBlock of string
     | HashHeader of int * string (* <h1>bag</h1> *)
-    | FencedCode of char * string * string (* char is either ` or ~ *)
 
 let print_block block =
     match block with
     | Paragraph (text) -> print_endline ("Paragraph: " ^ text)
     | BlankLine -> print_endline "BlankLine"
     | HashHeader (level, text) -> print_endline ("HashHeader of level " ^ (string_of_int level) ^ ": " ^ text);
+    | ListItem (text) -> print_endline ("ListItem: " ^ text);
+    | BlockQuote (text) -> print_endline ("BlockQuote: " ^ text);
     | _ -> raise NotImplementedError
 
 let rec print_blocks blocks =
@@ -63,16 +65,28 @@ type block_context =
 let add_to_block line context =
     match context with
     | NoContext -> IncompleteBlock (Paragraph(line))
-    | (CompleteBlock (Paragraph (text)) | IncompleteBlock (Paragraph (text))) -> IncompleteBlock (Paragraph(text ^ " " ^ line))
+    | IncompleteBlock (Paragraph (text)) -> IncompleteBlock (Paragraph(text ^ "\n" ^ line))
+    | IncompleteBlock (CodeBlock (text)) -> IncompleteBlock (CodeBlock(text ^ "\n" ^ line))
     | _ -> raise ParseError
 
+let is_probably_header string =
+    String.starts_with ~prefix:"#" string &&
+     String.ends_with ~suffix:"#" string &&
+     String.length string <= 6
+
+let to_words string =
+    match string with
+    | "" -> []
+    | non_empty -> String.split_on_char ' ' non_empty
+
 let line_to_block line context =
-    let words = String.split_on_char ' ' line in
+    let words = to_words line in
         match words with
-        | [] -> context
-        | first_word::_ -> match first_word with
-            | "#" -> CompleteBlock (HashHeader(1, line))
-            | "" -> CompleteBlock (BlankLine)
+        | [] -> CompleteBlock (BlankLine)
+        | first_word::rest -> match first_word with
+            | ("*" | "+" | "-") -> CompleteBlock (ListItem(String.concat " " rest))
+            | ">" -> CompleteBlock (BlockQuote(String.concat " " rest))
+            | word when is_probably_header word -> CompleteBlock (HashHeader(String.length word, (String.concat " " rest)))
             | _ -> add_to_block line context
 
 let blocks context block =
