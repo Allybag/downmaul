@@ -75,6 +75,7 @@ let starts_block line =
 let rec print_lines lines =
     match lines with
     | [] -> ()
+    | blank::tail when (String.length blank == 0) -> print_lines tail
     | line::tail -> print_endline line; print_lines tail
 
 let rec lines_to_list lines blocks =
@@ -177,12 +178,21 @@ let read_lines path =
             close_in in_channel;
             lines
 
+let block_to_html block =
+    match block with
+    | HashHeader (level, text) -> (let tag = "h" ^ (string_of_int level) in "<" ^ tag ^ ">" ^ text ^ "</" ^ tag ^ ">")
+    | CodeBlock (text) -> ("<pre><code>" ^ text ^ "</code></pre>")
+    | BlockQuote (text) -> ("<blockquote><p>" ^ text ^ "</p></blockquote>")
+    | Paragraph (text) -> ("<p>" ^ text ^ "</p>")
+    | ListItem (text) -> ("<li>" ^ text ^ "</li>")
+    | ListStart -> "<ul>"
+    | ListEnd   -> "</ul>"
+    | BlankLine -> ""
+
 let rec blocks_to_html blocks =
     match blocks with
         | [] -> []
-        | line::tail -> match line with
-            | Paragraph (text) -> ("<p>" ^ text ^ "</p>") :: blocks_to_html tail
-            | _ -> blocks_to_html tail
+        | block::tail -> block_to_html block :: blocks_to_html tail
 
 let markdown = Sys.argv.(1)
 let lines = read_lines markdown
