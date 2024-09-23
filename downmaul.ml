@@ -1,4 +1,4 @@
-exception ParseError
+exception ParseError of string
 
 type block =
     | BlankLine
@@ -72,15 +72,20 @@ let starts_block line =
     starts_quote line ||
     starts_code_block line
 
+let rec print_lines lines =
+    match lines with
+    | [] -> ()
+    | line::tail -> print_endline line; print_lines tail
+
 let rec lines_to_list lines blocks =
     match lines with
     | [] -> [ListEnd]
     | line::tail -> ListItem (line)::lines_to_list tail blocks
 
-let remove_first_word line = 
+let remove_first_word line =
     let words = to_words line in
         match words with
-        | [] -> raise ParseError
+        | [] -> raise (ParseError "No first word")
         | _::tail -> (String.concat " " tail)
 
 let rec remove_last list =
@@ -89,10 +94,10 @@ let rec remove_last list =
     | [_] -> []
     | h::t -> h::(remove_last t)
 
-let remove_last_word line = 
+let remove_last_word line =
     let words = to_words line in
-        match words with 
-        | [] -> raise ParseError
+        match words with
+        | [] -> ""
         | _::_ -> String.concat " " (remove_last words)
 
 let content line stream_type =
@@ -102,7 +107,7 @@ let content line stream_type =
 
 let stream_to_blocks stream line =
     match stream with
-    | (NoStream | BlockStream (_)) -> raise ParseError
+    | (NoStream | BlockStream (_)) -> raise (ParseError "Unexpected non pending stream")
     | PendingStream (stream_type, lines) -> match stream_type with
         | List -> BlockStream (Remaining, (ListStart :: lines_to_list lines []))
         | Text ->  BlockStream (Remaining, ([Paragraph(String.concat "\n" lines)]))
@@ -118,7 +123,7 @@ let ends_stream stream_type line =
 
 let add_to_stream line stream =
     match stream with
-    | BlockStream (_) -> raise ParseError
+    | BlockStream (_) -> raise (ParseError "Unexpected block stream")
     | NoStream -> NoStream
     | PendingStream (stream_type, lines) ->
         if ends_stream stream_type line then stream_to_blocks stream line else PendingStream (stream_type, (lines @ [content line stream_type]))
@@ -136,25 +141,25 @@ let line_to_stream line stream =
             | ("*" | "+" | "-") -> PendingStream (List, ([rest_of_line]))
             | ">" -> PendingStream (Quote, ([rest_of_line]))
             | word when is_probably_header word -> BlockStream (Consumed, [HashHeader(String.length word, rest_of_line)])
-            | ("```" | "~~~") when ends_stream Code line -> BlockStream (Consumed, [CodeBlock(remove_last_word rest_of_line)])
+            | ("```" | "~~~") when ends_stream Code rest_of_line -> BlockStream (Consumed, [CodeBlock(remove_last_word rest_of_line)])
             | ("```" | "~~~") -> PendingStream (Code, ([rest_of_line]))
             | _ -> PendingStream (Text, ([line]))
 
 let extract_blocks stream =
     match stream with
-    | (NoStream | PendingStream (_)) -> raise ParseError
+    | (NoStream | PendingStream (_)) -> raise (ParseError " Unexecpted non block stream")
     | BlockStream (status, blocks) -> blocks
 
 let rec lines_to_blocks lines stream =
     match lines with
         | [] -> (match stream with
             | NoStream -> []
-            | BlockStream (_) -> raise ParseError
+            | BlockStream (_) -> raise (ParseError "Unexecpted block stream")
             | PendingStream (_) -> extract_blocks (stream_to_blocks stream ""))
         | line::t -> let result = line_to_stream line stream in
             match result with
             | PendingStream (_) -> lines_to_blocks t result
-            | NoStream -> raise ParseError
+            | NoStream -> raise (ParseError "Unexpected no stream")
             | BlockStream (next_action ,blocks) -> match next_action with
                 | Consumed -> blocks @ (lines_to_blocks t NoStream)
                 | Remaining -> blocks @ (lines_to_blocks lines NoStream)
@@ -172,7 +177,15 @@ let read_lines path =
             close_in in_channel;
             lines
 
+let rec blocks_to_html blocks =
+    match blocks with
+        | [] -> []
+        | line::tail -> match line with
+            | Paragraph (text) -> ("<p>" ^ text ^ "</p>") :: blocks_to_html tail
+            | _ -> blocks_to_html tail
+
 let markdown = Sys.argv.(1)
 let lines = read_lines markdown
 let blocks = lines_to_blocks lines NoStream
-let _ = print_blocks blocks
+let html = blocks_to_html blocks
+let _ = if true then print_lines html else print_blocks blocks
