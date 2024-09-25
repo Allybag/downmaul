@@ -14,6 +14,12 @@ The following subset of MarkDown will be implemented:
 * Inline code spans
 * Line breaks
 
-The major restriction is that nested block type structures
-(lists, block quotes and code blocks) are not allowed,
-to allow the parser to be much simpler and less recursive.
+The major restriction is that block type structures
+(lists, block quotes and code blocks) or inline structures
+(links, emphasised text and inline code) cannot be nested.
+Blocks can contain multiple inline elements in each block,
+but blocks cannot contain blocks and inline elements cannot
+contain other inline elements.
+
+If this rule is violiated, you will probably get a parser
+error, but could easily get malformed output instead.
