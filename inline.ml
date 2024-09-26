@@ -28,17 +28,17 @@ type inline_type =
     | LinkReference
     | ImageReference
 
-let rec inline_start_index_impl line index inlines =
+let rec inline_start_index_impl line index inlines first_char first_index =
     match inlines with
-    | [] -> (' ', index)
+    | [] -> (first_char, first_index)
     | char::tail -> let inline_index = String.index_from_opt line index char in
         match inline_index with
-        | None -> inline_start_index_impl line index tail
-        | Some (start_index) -> (assert (start_index >= index)); (char, start_index)
+        | Some (start_index) when (first_char == ' ' || start_index < first_index) -> inline_start_index_impl line index tail char start_index
+        | _ -> inline_start_index_impl line index tail first_char first_index
 
 let inline_start_index line index =
-    let inlines = ['*'; '`'; '!'; '['] in (* Dubiously '!' must be before '[' *)
-        inline_start_index_impl line index inlines
+    let inlines = ['*'; '`'; '!'; '['] in
+        inline_start_index_impl line index inlines ' ' 0
 
 exception ParseError of string
 exception NotImplementedError
