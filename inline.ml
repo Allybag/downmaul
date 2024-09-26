@@ -79,32 +79,38 @@ let sub line start_index length where : string =
     print_endline ("Sub: " ^ where ^ ", start: " ^ (string_of_int start_index) ^ ", length: " ^ (string_of_int length) ^ ", total: " ^ (string_of_int (String.length line)));
     String.sub line start_index length
 
+let extract_link line start_index =
+    let text_end = String.index_from line start_index ']' in
+        match line.[text_end + 1] with
+        |'(' -> let source_end = String.index_from line text_end ')' in
+            ((String.sub line start_index (text_end - start_index)), (String.sub line (text_end + 2) (source_end - text_end - 2)))
+        |('[' | _) -> raise NotImplementedError
+    
+
 let extract_element start_char start_index line =
     let element_type, length = inline_length start_char start_index line in
         match element_type with
         | PlainText -> raise (ParseError "Attempting to extract a plain text element")
         | Emphasise ->
-            let element_text = sub line (start_index + 1) (length - 1) "extract_element" in
+            let element_text = String.sub line (start_index + 1) (length - 1) in
               (Emphatic (element_text), length)
         | Strengthen ->
-            let element_text = sub line (start_index + 2) (length - 3) "extract_element" in
+            let element_text = String.sub line (start_index + 2) (length - 3) in
               (Strong (element_text), length)
         | Source ->
-            let element_text = sub line (start_index + 1) (length - 1) "extract_element" in
+            let element_text = String.sub line (start_index + 1) (length - 1) in
               (Code (element_text), length)
-        | LinkReference ->
-            let element_text = sub line (start_index + 1) (length - 1) "extract_element" in
-              (Link (element_text, "example.org"), length)
-        | ImageReference ->
-            let element_text = sub line (start_index + 1) (length - 1) "extract_element" in
-              (Image (element_text, "example.org/image"), length)
+        | LinkReference -> let element_text, element_source = extract_link line (start_index + 1) in
+              (Link (element_text, element_source), length)
+        | ImageReference -> let element_text, element_source = extract_link line (start_index + 2) in
+              (Image (element_text, element_source), length)
 
 let rec line_to_elements line index =
     let start_char, start_index = inline_start_index line index in
         match start_char with
         | ' ' -> [Text (String.sub line index ((String.length line) - index))]
         | _ -> let element, length  = extract_element start_char start_index line in
-                let initial_text = Text (sub line index (start_index - index) "line_to_elements") in
+                let initial_text = Text (String.sub line index (start_index - index)) in
                         [initial_text; element] @ line_to_elements line (start_index + length + 1)
 
 let to_elements line =
@@ -130,7 +136,7 @@ let rec print_lines lines =
     | blank::tail when (String.length blank == 0) -> print_lines tail
     | line::tail -> print_string line; print_lines tail
 
-let s = "![dog][dogimage]Hello|*foo*|**bag**|woohoo|`let x = false`|[here](example.org)|world"
+let s = "![dog](dogimage)Hello|*foo*|**bag**|woohoo|`let x = false`|[here](example.org)|world"
 let elements = to_elements s
 let html = inlines_to_html elements
 let _ = print_lines html
