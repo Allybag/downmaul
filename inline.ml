@@ -3,8 +3,8 @@ type inline =
     | Emphatic of string
     | Strong of string
     | Code of string
-    | Link of string
-    | Image of string
+    | Link of string * string
+    | Image of string * string
 
 let print_inline element =
     match element with
@@ -12,8 +12,8 @@ let print_inline element =
     | Emphatic (text) -> print_endline ("Emphatic: " ^ text)
     | Strong (text) -> print_endline ("Strong: " ^ text)
     | Code (text) -> print_endline ("Code: " ^ text)
-    | Link (text) -> print_endline ("Link: " ^ text)
-    | Image (text) -> print_endline ("Image: " ^ text)
+    | Link (text, _) -> print_endline ("Link: " ^ text)
+    | Image (text, _) -> print_endline ("Image: " ^ text)
 
 let rec print_inlines elements =
     match elements with
@@ -94,10 +94,10 @@ let extract_element start_char start_index line =
               (Code (element_text), length)
         | LinkReference ->
             let element_text = sub line (start_index + 1) (length - 1) "extract_element" in
-              (Link (element_text), length)
+              (Link (element_text, "example.org"), length)
         | ImageReference ->
             let element_text = sub line (start_index + 1) (length - 1) "extract_element" in
-              (Image (element_text), length)
+              (Image (element_text, "example.org/image"), length)
 
 let rec line_to_elements line index =
     let start_char, start_index = inline_start_index line index in
@@ -110,6 +110,27 @@ let rec line_to_elements line index =
 let to_elements line =
     line_to_elements line 0
 
+let inline_to_html inline =
+    match inline with
+    | Text (text) -> text
+    | Emphatic (text) -> "<em>" ^ text ^ "</em>"
+    | Strong (text) -> "<strong>" ^ text ^ "</strong>"
+    | Code (text) -> "<code>" ^ text ^ "</code>"
+    | Link (text, source) -> "<a href=\"" ^ source ^ "\">" ^ text ^ "</a>"
+    | Image (text, source) -> "<img src=\"" ^ source ^ "\">" ^ text ^ "</img>"
+
+let rec inlines_to_html inlines =
+    match inlines with
+        | [] -> []
+        | inline::tail -> inline_to_html inline :: inlines_to_html tail
+
+let rec print_lines lines =
+    match lines with
+    | [] -> print_endline ""
+    | blank::tail when (String.length blank == 0) -> print_lines tail
+    | line::tail -> print_string line; print_lines tail
+
 let s = "![dog][dogimage]Hello|*foo*|**bag**|woohoo|`let x = false`|[here](example.org)|world"
 let elements = to_elements s
-let _ = print_inlines elements
+let html = inlines_to_html elements
+let _ = print_lines html
