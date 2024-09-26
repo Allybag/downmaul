@@ -1,3 +1,5 @@
+#use "common.ml"
+
 type inline =
     | Text of string
     | Emphatic of string
@@ -39,9 +41,6 @@ let rec inline_start_index_impl line index inlines first_char first_index =
 let inline_start_index line index =
     let inlines = ['*'; '`'; '!'; '['] in
         inline_start_index_impl line index inlines ' ' 0
-
-exception ParseError of string
-exception NotImplementedError
 
 let inc opt =
     match opt with
@@ -130,13 +129,3 @@ let rec inlines_to_html inlines =
         | [] -> []
         | inline::tail -> inline_to_html inline :: inlines_to_html tail
 
-let rec print_lines lines =
-    match lines with
-    | [] -> print_endline ""
-    | blank::tail when (String.length blank == 0) -> print_lines tail
-    | line::tail -> print_string line; print_lines tail
-
-let s = "![dog](dogimage)Hello|*foo*|**bag**|woohoo|`let x = false`|[here](example.org)|world"
-let elements = to_elements s
-let html = inlines_to_html elements
-let _ = print_lines html

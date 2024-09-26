@@ -22,4 +22,4 @@ but blocks cannot contain blocks and inline elements cannot
 contain other inline elements.
 
 If this rule is violiated, you will probably get a parser
-error, but could easily get malformed output instead.
+error, but could easily generate invalid or wrong html instead.

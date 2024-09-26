@@ -1,0 +1,2 @@
+exception ParseError of string
+exception NotImplementedError

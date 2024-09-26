@@ -1,17 +1,17 @@
-<h1 id="tilapia">Tilapia</h1>
+<h1>Tilapia</h1>
 <p>A userspace TCP stack.</p>
 <p>I will be mainly following along with this
 <a href="https://www.saminiir.com/lets-code-tcp-ip-stack-1-ethernet-arp/">guide</a></p>
 <blockquote>
 <p>A tilapia is a kind of fish.</p>
 </blockquote>
-<h2 id="tap-device">Tap Device</h2>
+<h2>Tap Device</h2>
 <p>We will be dealing with a TAP device, a simulated Layer 2 device.
 When we create our device we are assigned a MAC address at random
 by the operating system, but we can choose our own if we want to:
 <code>ip link set address aa::bb::cc::dd::ee::ff Tilapia</code></p>
 <p>This means we will be sending and receiving Ethernet frames.</p>
-<h1 id="tilapia-1">Tilapia</h1>
+<h1>Tilapia</h1>
 <p>The goal of this TCP stack are:</p>
 <ul>
 <li>Implement a subset of TCP successfully</li>
