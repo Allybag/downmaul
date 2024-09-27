@@ -1,6 +1,6 @@
 # Tilapia
 
-A userspace TCP stack.
+A userspace TCP stack!
 
 I will be mainly following along with this
 [guide](https://www.saminiir.com/lets-code-tcp-ip-stack-1-ethernet-arp/)

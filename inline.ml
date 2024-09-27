@@ -30,12 +30,17 @@ type inline_type =
     | LinkReference
     | ImageReference
 
+let valid_start start_index char line =
+    match char with
+    |'!' -> (start_index + 1 < String.length line) && line.[start_index + 1] == '['
+    |_ -> true
+
 let rec inline_start_index_impl line index inlines first_char first_index =
     match inlines with
     | [] -> (first_char, first_index)
     | char::tail -> let inline_index = String.index_from_opt line index char in
         match inline_index with
-        | Some (start_index) when (first_char == ' ' || start_index < first_index) -> inline_start_index_impl line index tail char start_index
+        | Some (start_index) when (valid_start start_index char line) && (first_char == ' ' || start_index < first_index) -> inline_start_index_impl line index tail char start_index
         | _ -> inline_start_index_impl line index tail first_char first_index
 
 let inline_start_index line index =
@@ -117,7 +122,7 @@ let to_elements line =
 
 let inline_to_html inline =
     match inline with
-    | Text (text) -> text
+    | Text (text) -> (escape_chars text)
     | Emphatic (text) -> "<em>" ^ (escape_chars text) ^ "</em>"
     | Strong (text) -> "<strong>" ^ (escape_chars text) ^ "</strong>"
     | Code (text) -> "<code>" ^ (escape_chars text) ^ "</code>"
