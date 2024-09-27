@@ -151,7 +151,7 @@ let extract_blocks stream =
     | (NoStream | PendingStream (_)) -> raise (ParseError " Unexecpted non block stream")
     | BlockStream (status, blocks) -> blocks
 
-let rec lines_to_blocks lines stream =
+let rec lines_to_blocks_impl lines stream =
     match lines with
         | [] -> (match stream with
             | NoStream -> []
@@ -159,11 +159,14 @@ let rec lines_to_blocks lines stream =
             | PendingStream (_) -> extract_blocks (stream_to_blocks stream ""))
         | line::t -> let result = line_to_stream line stream in
             match result with
-            | PendingStream (_) -> lines_to_blocks t result
+            | PendingStream (_) -> lines_to_blocks_impl t result
             | NoStream -> raise (ParseError "Unexpected no stream")
             | BlockStream (next_action ,blocks) -> match next_action with
-                | Consumed -> blocks @ (lines_to_blocks t NoStream)
-                | Remaining -> blocks @ (lines_to_blocks lines NoStream)
+                | Consumed -> blocks @ (lines_to_blocks_impl t NoStream)
+                | Remaining -> blocks @ (lines_to_blocks_impl lines NoStream)
+
+let lines_to_blocks lines =
+    lines_to_blocks_impl lines NoStream
 
 let block_to_html block inline_to_html_func =
     match block with
