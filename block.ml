@@ -167,8 +167,8 @@ let rec lines_to_blocks lines stream =
 
 let block_to_html block inline_to_html_func =
     match block with
-    | HashHeader (level, text) -> (let tag = "h" ^ (string_of_int level) in "<" ^ tag ^ ">" ^ text ^ "</" ^ tag ^ ">")
-    | CodeBlock (text) -> ("<pre><code>" ^ text ^ "</code></pre>")
+    | HashHeader (level, text) -> (let tag = "h" ^ (string_of_int level) in "<" ^ tag ^ ">" ^ (escape_chars text) ^ "</" ^ tag ^ ">")
+    | CodeBlock (text) -> ("<pre><code>" ^ (escape_chars text) ^ "</code></pre>")
     | BlockQuote (text) -> ("<blockquote><p>" ^ (inline_to_html_func text) ^ "</p></blockquote>")
     | Paragraph (text) -> ("<p>" ^ (inline_to_html_func text) ^ "</p>")
     | ListItem (text) -> ("<li>" ^ (inline_to_html_func text) ^ "</li>")

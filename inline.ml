@@ -118,11 +118,11 @@ let to_elements line =
 let inline_to_html inline =
     match inline with
     | Text (text) -> text
-    | Emphatic (text) -> "<em>" ^ text ^ "</em>"
-    | Strong (text) -> "<strong>" ^ text ^ "</strong>"
-    | Code (text) -> "<code>" ^ text ^ "</code>"
-    | Link (text, source) -> "<a href=\"" ^ source ^ "\">" ^ text ^ "</a>"
-    | Image (text, source) -> "<img src=\"" ^ source ^ "\">" ^ text ^ "</img>"
+    | Emphatic (text) -> "<em>" ^ (escape_chars text) ^ "</em>"
+    | Strong (text) -> "<strong>" ^ (escape_chars text) ^ "</strong>"
+    | Code (text) -> "<code>" ^ (escape_chars text) ^ "</code>"
+    | Link (text, source) -> "<a href=\"" ^ (escape_chars source) ^ "\">" ^ (escape_chars text) ^ "</a>"
+    | Image (text, source) -> "<img src=\"" ^ (escape_chars source) ^ "\">" ^ (escape_chars text) ^ "</img>"
 
 let rec inlines_to_html inlines =
     match inlines with
